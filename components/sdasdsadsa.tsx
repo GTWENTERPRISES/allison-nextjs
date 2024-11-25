@@ -11,11 +11,10 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export function RecentSales() {
-  const { ventas, isLoading } = useVentas();
+  const { ventas, isLoading, isError } = useVentas();
 
-  if (isLoading) {
-    return <div>Cargando ventas recientes...</div>;
-  }
+  if (isLoading) return <div>Cargando ventas...</div>;
+  if (isError) return <div>Error al cargar ventas</div>;
 
   const ventasRecientes = ventas?.slice(0, 5) || [];
 

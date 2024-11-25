@@ -1,32 +1,18 @@
+// components/producto-dialog.tsx
 "use client";
 
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { createProducto, updateProducto } from "@/lib/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
-
-const formSchema = z.object({
-  codigo: z.string().min(1, "El código es requerido"),
-  nombre: z.string().min(1, "El nombre es requerido"),
-  stock: z.string().min(1, "El stock es requerido"),
-  precio: z.string().min(1, "El precio es requerido"),
-});
+import { Label } from "@/components/ui/label";
+import { createProducto, updateProducto } from '@/hooks/useProductos';
 
 interface ProductoDialogProps {
   open: boolean;
@@ -35,106 +21,117 @@ interface ProductoDialogProps {
   onSuccess: () => void;
 }
 
-export function ProductoDialog({
-  open,
-  onOpenChange,
-  producto,
-  onSuccess,
+export function ProductoDialog({ 
+  open, 
+  onOpenChange, 
+  producto, 
+  onSuccess 
 }: ProductoDialogProps) {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      codigo: producto?.codigo || "",
-      nombre: producto?.nombre || "",
-      stock: producto?.stock?.toString() || "",
-      precio: producto?.precio?.toString() || "",
-    },
+  const [formData, setFormData] = useState({
+    codigo: '',
+    nombre: '',
+    precio: '',
+    stock: 0
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    try {
-      const data = {
-        ...values,
-        stock: parseInt(values.stock),
-        precio: parseFloat(values.precio),
-      };
+  // Efecto para actualizar el estado del formulario cuando se selecciona un producto para editar
+  useEffect(() => {
+    if (producto) {
+      setFormData({
+        codigo: producto.codigo,
+        nombre: producto.nombre,
+        precio: producto.precio,
+        stock: producto.stock
+      });
+    } else {
+      setFormData({
+        codigo: '',
+        nombre: '',
+        precio: '',
+        stock: 0
+      });
+    }
+  }, [producto]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
       if (producto) {
-        await updateProducto(producto.id, data);
-        toast.success("Producto actualizado");
+        // Actualizar producto existente
+        await updateProducto(producto.id, formData);
       } else {
-        await createProducto(data);
-        toast.success("Producto creado");
+        // Crear nuevo producto
+        await createProducto(formData);
       }
       onSuccess();
     } catch (error) {
-      toast.error("Error al guardar el producto");
+      console.error('Error al guardar producto:', error);
+      // Manejar errores (puedes agregar un toast o mensaje de error)
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {producto ? "Editar Producto" : "Nuevo Producto"}
+            {producto ? 'Editar Producto' : 'Nuevo Producto'}
           </DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Código</Label>
+            <Input
               name="codigo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Código</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
+              value={formData.codigo}
+              onChange={handleChange}
+              required
             />
-            <FormField
-              control={form.control}
+          </div>
+          <div>
+            <Label>Nombre</Label>
+            <Input
               name="nombre"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
+              value={formData.nombre}
+              onChange={handleChange}
+              required
             />
-            <FormField
-              control={form.control}
-              name="stock"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Stock</FormLabel>
-                  <FormControl>
-                    <Input type="number" min="0" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
+          </div>
+          <div>
+            <Label>Precio</Label>
+            <Input
               name="precio"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Precio</FormLabel>
-                  <FormControl>
-                    <Input type="number" min="0" step="0.01" {...field} />
-                  </FormControl>
-                </FormItem>
-              )}
+              type="number"
+              step="0.01"
+              value={formData.precio}
+              onChange={handleChange}
+              required
             />
-            <Button type="submit" className="w-full">
-              {producto ? "Actualizar" : "Crear"}
+          </div>
+          <div>
+            <Label>Stock</Label>
+            <Input
+              name="stock"
+              type="number"
+              value={formData.stock}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button type="submit">
+              {producto ? 'Actualizar' : 'Crear'}
             </Button>
-          </form>
-        </Form>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

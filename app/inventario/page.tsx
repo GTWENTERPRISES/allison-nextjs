@@ -1,3 +1,4 @@
+// app/inventario/page.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useProductos } from "@/hooks/useProductos";
-import { PlusCircle } from "lucide-react";
+import { useProductos, deleteProducto } from "@/hooks/useProductos";
+import { PlusCircle, Trash2 } from "lucide-react";
 import { ProductoDialog } from "@/components/producto-dialog";
 import { useState } from "react";
+import { toast } from "sonner"; // Opcional: para mostrar notificaciones
 
 export default function Inventario() {
   const { productos, isLoading, mutate } = useProductos();
@@ -24,14 +26,27 @@ export default function Inventario() {
     setOpenDialog(true);
   };
 
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteProducto(id);
+      mutate(); // Revalidar la lista de productos
+      toast.success('Producto eliminado correctamente');
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      toast.error('No se pudo eliminar el producto');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Inventario</h1>
-        <Button onClick={() => {
-          setSelectedProduct(null);
-          setOpenDialog(true);
-        }}>
+        <Button 
+          onClick={() => {
+            setSelectedProduct(null);
+            setOpenDialog(true);
+          }}
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
           Nuevo Producto
         </Button>
@@ -57,14 +72,21 @@ export default function Inventario() {
                   <TableCell>{producto.codigo}</TableCell>
                   <TableCell>{producto.nombre}</TableCell>
                   <TableCell>{producto.stock}</TableCell>
-                  <TableCell>${producto.precio.toFixed(2)}</TableCell>
-                  <TableCell>
+                  <TableCell>${producto.precio}</TableCell>
+                  <TableCell className="flex space-x-2">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEdit(producto)}
-                    >
+                 >
                       Editar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(producto.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -74,14 +96,15 @@ export default function Inventario() {
         </div>
       )}
 
-      <ProductoDialog
-        open={openDialog}
-        onOpenChange={setOpenDialog}
-        producto={selectedProduct}
+      <ProductoDialog 
+        open={openDialog} 
+        onOpenChange={setOpenDialog} 
+        producto={selectedProduct} 
         onSuccess={() => {
+          mutate(); // Revalidar la lista de productos después de crear/actualizar
           setOpenDialog(false);
-          mutate();
-        }}
+          setSelectedProduct(null);
+        }} 
       />
     </div>
   );

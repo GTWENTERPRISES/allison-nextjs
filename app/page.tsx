@@ -17,8 +17,8 @@ export default function Home() {
         </Link>
       </div>
       
-      <DashboardStats />
-      <RecentSales />
+      <DashboardStats/>
+      
     </div>
   );
 }

@@ -20,30 +20,55 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useState } from "react";
-import { useProductos } from "@/hooks/useProductos";
-import { createCompra } from "@/lib/api";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import axios from "axios";
 
+// Definir el esquema de validación
 const formSchema = z.object({
   producto: z.string().min(1, "Seleccione un producto"),
   cantidad: z.string().min(1, "Ingrese una cantidad"),
   precioCompra: z.string().min(1, "Ingrese el precio de compra"),
 });
 
+// Interfaces para tipado
+interface Producto {
+  id: number;
+  codigo: string;
+  nombre: string;
+  stock: number;
+}
+
 interface CompraItem {
-  producto: string;
+  producto: number;
   cantidad: number;
-  precioCompra: number;
+  precio_compra: number;
   subtotal: number;
 }
 
 export default function NuevaCompra() {
   const router = useRouter();
-  const { productos, isLoading, mutate } = useProductos();
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [items, setItems] = useState<CompraItem[]>([]);
   
+  // Fetch de productos
+  useEffect(() => {
+    async function fetchProductos() {
+      try {
+        const response = await axios.get('http://localhost:8000/api/productos/');
+        setProductos(response.data);
+        setIsLoading(false);
+      } catch (error) {
+        toast.error("Error al cargar productos");
+        setIsLoading(false);
+      }
+    }
+    fetchProductos();
+  }, []);
+
+  // Configuración del formulario
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -53,8 +78,9 @@ export default function NuevaCompra() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    const producto = productos.find((p: any) => p.id === values.producto);
+  // Función para agregar item a la compra
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    const producto = productos.find((p) => p.id === parseInt(values.producto));
     if (!producto) return;
 
     const cantidad = parseInt(values.cantidad);
@@ -62,7 +88,7 @@ export default function NuevaCompra() {
     const nuevoItem: CompraItem = {
       producto: producto.id,
       cantidad,
-      precioCompra,
+      precio_compra: precioCompra,
       subtotal: precioCompra * cantidad,
     };
 
@@ -70,6 +96,7 @@ export default function NuevaCompra() {
     form.reset();
   }
 
+  // Función para finalizar la compra
   async function finalizarCompra() {
     if (items.length === 0) {
       toast.error("Agregue al menos un producto");
@@ -77,24 +104,37 @@ export default function NuevaCompra() {
     }
 
     try {
-      await createCompra({
+      // Enviar la compra a la API de Django
+      const response = await axios.post('http://localhost:8000/api/compras/', {
         items: items.map(item => ({
           producto: item.producto,
           cantidad: item.cantidad,
-          precio_compra: item.precioCompra,
+          precio_compra: item.precio_compra,
         })),
       });
 
       toast.success("Compra registrada con éxito");
-      mutate(); // Actualizar el inventario
       router.push("/inventario");
-    } catch (error) {
-      toast.error("Error al procesar la compra");
+    } catch (error: any) {
+      // Manejo de errores de la API
+      if (error.response) {
+        // La solicitud fue hecha y el servidor respondió con un código de estado
+        // que cae fuera del rango de 2xx
+        toast.error(error.response.data.detail || "Error al procesar la compra");
+      } else if (error.request) {
+        // La solicitud fue hecha pero no se recibió respuesta
+        toast.error("No se pudo conectar con el servidor");
+      } else {
+        // Algo sucedió al configurar la solicitud que provocó un error
+        toast.error("Error al procesar la compra");
+      }
     }
   }
 
+  // Calcular total
   const total = items.reduce((acc, item) => acc + item.subtotal, 0);
 
+  // Estado de carga
   if (isLoading) return <div>Cargando...</div>;
 
   return (
@@ -106,6 +146,7 @@ export default function NuevaCompra() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-3 gap-4">
+                {/* Campo de Producto */}
                 <FormField
                   control={form.control}
                   name="producto"
@@ -122,8 +163,11 @@ export default function NuevaCompra() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {productos.map((producto: any) => (
-                            <SelectItem key={producto.id} value={producto.id}>
+                          {productos.map((producto) => (
+                            <SelectItem 
+                              key={producto.id} 
+                              value={producto.id.toString()}
+                            >
                               {producto.nombre}
                             </SelectItem>
                           ))}
@@ -133,6 +177,7 @@ export default function NuevaCompra() {
                   )}
                 />
 
+                {/* Campo de Cantidad */}
                 <FormField
                   control={form.control}
                   name="cantidad"
@@ -146,6 +191,7 @@ export default function NuevaCompra() {
                   )}
                 />
 
+                {/* Campo de Precio de Compra */}
                 <FormField
                   control={form.control}
                   name="precioCompra"
@@ -167,6 +213,7 @@ export default function NuevaCompra() {
           </Form>
         </Card>
 
+        {/* Resumen de Compra */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Resumen de compra</h2>
           {items.length === 0 ? (
@@ -176,35 +223,28 @@ export default function NuevaCompra() {
           ) : (
             <div className="space-y-4">
               {items.map((item, index) => {
-                const producto = productos.find((p: any) => p.id === item.producto);
+                const producto = productos.find((p) => p.id === item.producto);
                 return (
                   <div key={index} className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium">{producto?.nombre}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.cantidad} x ${item.precioCompra}
-                      </p>
+                      
+                      <span>{producto?.nombre} x {item.cantidad}</span>
                     </div>
-                    <p className="font-medium">${item.subtotal.toFixed(2)}</p>
+                    <div>
+                      <span>${item.subtotal.toFixed(2)}</span>
+                    </div>
                   </div>
                 );
               })}
+              <div className="flex justify-between font-bold">
+                <span>Total</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
             </div>
           )}
-          <div className="mt-6 pt-6 border-t">
-            <div className="flex justify-between text-lg font-semibold">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-            <Button 
-              className="w-full mt-4" 
-              size="lg"
-              onClick={finalizarCompra}
-              disabled={items.length === 0}
-            >
-              Finalizar Compra
-            </Button>
-          </div>
+          <Button onClick={finalizarCompra} className="w-full mt-4">
+            Finalizar Compra
+          </Button>
         </Card>
       </div>
     </div>

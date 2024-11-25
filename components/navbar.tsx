@@ -7,19 +7,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Moon, Sun, Store } from "lucide-react";
+import { Moon, Sun, Store, Paperclip } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 export default function Navbar() {
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [isDarkMode, setIsDarkMode] = useState(theme === "dark");
+
+  useEffect(() => {
+    setIsDarkMode(theme === "dark");
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const newTheme = isDarkMode ? "light" : "dark";
+    setTheme(newTheme);
+    setIsDarkMode(newTheme === "dark");
+  };
 
   return (
     <header className="border-b">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center space-x-2">
-          <Store className="h-6 w-6" />
-          <span className="font-bold text-xl">Papelería</span>
+          <Paperclip className="h-6 w-6" />
+          <span className="font-bold text-xl">CyberAllison</span>
         </Link>
 
         <nav className="flex items-center space-x-4">
@@ -32,13 +44,15 @@ export default function Navbar() {
           <Link href="/venta-nueva">
             <Button variant="ghost">Ventas</Button>
           </Link>
+          
+          <Button variant="ghost" onClick={toggleTheme}>
+            <Sun className="h-5 w-5" />
+            
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
-              </Button>
+              
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setTheme("light")}>
